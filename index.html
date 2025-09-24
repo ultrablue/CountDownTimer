@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" x-data="countdownApp()" x-init="loadTimers()">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Alpine.js Countdown</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Xanh+Mono:ital@0;1&display=swap" rel="stylesheet">
+
+    <style>
+        .xanh-mono-regular {
+            font-family: "Xanh Mono", monospace;
+            font-weight: 400;
+            font-style: normal;
+        }
+
+
+        body {
+            font-family: xanh-mono-regular, monospace;
+            padding: 1rem;
+        }
+
+        .timer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 10rem;
+        }
+
+        .expired {
+            background: #ed626e;
+            color: #200b0d;
+        }
+
+        .expired-bg {
+            background-color: #e66f79;
+            transition: background-color 0.75s ease;
+        }
+
+        button {
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Input Area -->
+    <div class="input-area">
+        <input type="datetime-local" x-model="newDt">
+        <button @click="addTimer()">Add Timer</button>
+    </div>
+
+    <hr>
+
+    <!-- Display Area -->
+    <template x-for="timer in sortedTimers()" :key="timer.id">
+        <div class="timer" :class="{ 'expired-bg': isExpired(timer, now) }">
+            <div x-text="formatCountdown(timer, now)"></div>
+            <button @click="removeTimer(timer)">
+                <span x-text="isExpired(timer, now) ? 'Close' : 'Dismiss'"></span>
+            </button>
+        </div>
+    </template>
+
+    <script>
+        function countdownApp() {
+            now: Date.now();
+            return {
+                newDt: '',
+                timers: [],
+
+                loadTimers() {
+                    const saved = localStorage.getItem('timers');
+                    this.timers = saved ? JSON.parse(saved) : [];
+                    this.startTicker();
+                },
+
+                saveTimers() {
+                    localStorage.setItem('timers', JSON.stringify(this.timers));
+                },
+
+                addTimer() {
+                    if (!this.newDt) return;
+                    this.timers.push({
+                        id: Date.now(),
+                        until: new Date(this.newDt).getTime()
+                    });
+                    this.newDt = '';
+                    this.saveTimers();
+                },
+
+                sortedTimers() {
+                    return this.timers.slice().sort((a, b) => a.until - b.until);
+                },
+
+                isExpired(timer, now) {
+                    <!-- console.log(Date.now(), timer.until); -->
+                    return Date.now() >= timer.until;
+                },
+
+                formatCountdown(timer, now) {
+                    //const diff = timer.until - Date.now();
+                    const diff = timer.until - now;
+                    if (diff <= 0) return '00:00:00:00';
+                    //const secs = Math.floor(diff / 1000 % 60);
+                    const mins = Math.floor(diff / 1000 / 60 % 60);
+                    const hrs = Math.floor(diff / 1000 / 3600 % 24);
+                    //const days = Math.floor(diff / 1000 / 3600 / 24);
+                    return [
+                        //String(days).padStart(2, '0'),
+                        String(hrs).padStart(2, '0'),
+                        String(mins).padStart(2, '0'),
+                        //String(secs).padStart(2, '0')
+                    ].join(':');
+                },
+
+                startTicker() {
+                    setInterval(() => {
+                        // Touch Alpine to re-render
+                        this.now = Date.now();
+                    }, 1000);
+                },
+
+                removeTimer(timer) {
+                    if (!this.isExpired(timer) && !confirm('Dismiss this active timer?')) return;
+                    this.timers = this.timers.filter(t => t.id !== timer.id);
+                    this.saveTimers();
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
