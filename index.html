@@ -45,6 +45,11 @@
             transition: background-color 0.75s ease;
         }
 
+        .almost-expired {
+            background: #f9f1a5;
+            color: #4a3c00;
+        }
+
         button {
             margin-left: 0.5rem;
         }
@@ -63,7 +68,8 @@
 
     <!-- Display Area -->
     <template x-for="timer in sortedTimers()" :key="timer.id">
-        <div class="timer" :class="{ 'expired-bg': isExpired(timer, now) }">
+        <div class="timer" :class="{ 'expired-bg': isExpired(timer, now), 
+            'almost-expired': isAlmostExpired(timer, now)  }">
             <div x-text="formatCountdown(timer, now)"></div>
             <button @click="removeTimer(timer)">
                 <span x-text="isExpired(timer, now) ? 'Close' : 'Dismiss'"></span>
@@ -103,17 +109,22 @@
                 },
 
                 isExpired(timer, now) {
+                    // TODO: This should probably be a computed property on each timer. Or something.
                     return Date.now() >= timer.until;
                 },
 
-                formatCountdown(timer, now) {
-                    //const diff = timer.until - Date.now();
+                isAlmostExpired(timer, now) {
+                    //TODO: This should probably be a computed property on each timer. Or something.
                     const diff = timer.until - now;
-                    if (diff <= 0) return '00:00:00:00';
-                    //const secs = Math.floor(diff / 1000 % 60);
+                    return diff > 0 && diff < 5 * 60 * 1000; // 5 minutes 
+                },
+
+                formatCountdown(timer, now) {
+                    // TODO This should be refactored to use specific formats like HH:MM:SS.
+                    const diff = timer.until - now;
+                    if (diff <= 0) return '--:--:--:--';
                     const mins = Math.floor(diff / 1000 / 60 % 60);
                     const hrs = Math.floor(diff / 1000 / 3600 % 24);
-                    //const days = Math.floor(diff / 1000 / 3600 / 24);
                     return [
                         //String(days).padStart(2, '0'),
                         String(hrs).padStart(2, '0'),
