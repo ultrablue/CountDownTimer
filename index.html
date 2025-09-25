@@ -68,8 +68,9 @@
 
     <!-- Display Area -->
     <template x-for="timer in sortedTimers()" :key="timer.id">
-        <div class="timer" :class="{ 'expired-bg': isExpired(timer, now), 
-            'almost-expired': isAlmostExpired(timer, now)  }">
+        <div class="timer" :class="'almost-expired': isAlmostExpired(timer, now)  },
+            { 'expired-bg': isExpired(timer, now) 
+        }">
             <div x-text="formatCountdown(timer, now)"></div>
             <button @click="removeTimer(timer)">
                 <span x-text="isExpired(timer, now) ? 'Close' : 'Dismiss'"></span>
@@ -153,7 +154,6 @@
     <div>
         Todo
         <ul>
-            <li>Add a warning setting. Ie when countdown gets to 5 minutes, do something like change how it looks.</li>
             <li>Add a little throbber that ticks on the seconds. A toggle of some kind.</li>
         </ul>
     </div>
