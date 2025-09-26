@@ -68,9 +68,10 @@
 
     <!-- Display Area -->
     <template x-for="timer in sortedTimers()" :key="timer.id">
-        <div class="timer" :class="'almost-expired': isAlmostExpired(timer, now)  },
-            { 'expired-bg': isExpired(timer, now) 
-        }">
+        <div class="timer" :class="{
+            'almost-expired': isAlmostExpired(timer, now),
+            'expired-bg': isExpired(timer, now)
+             }">
             <div x-text="formatCountdown(timer, now)"></div>
             <button @click="removeTimer(timer)">
                 <span x-text="isExpired(timer, now) ? 'Close' : 'Dismiss'"></span>
@@ -80,8 +81,10 @@
 
     <script>
         function countdownApp() {
-            now: Date.now();
+
+
             return {
+                now: Date.now(),
                 newDt: '',
                 timers: [],
 
@@ -154,7 +157,8 @@
     <div>
         Todo
         <ul>
-            <li>Add a little throbber that ticks on the seconds. A toggle of some kind.</li>
+            <li>Add a little throbber that ticks on the seconds. A toggle of some kind. Maybe make the colon flash?</li>
+            <li>One square (or other shape) per minute. Remove them one a time. Randomly or in a particular order. </li>
         </ul>
     </div>
 
