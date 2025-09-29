@@ -11,6 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Xanh+Mono:ital@0;1&display=swap" rel="stylesheet">
 
+
+
     <style>
         .xanh-mono-regular {
             font-family: "Xanh Mono", monospace;
@@ -60,7 +62,8 @@
 
     <!-- Input Area -->
     <div class="input-area">
-        <input type="datetime-local" x-model="newDt">
+        <!-- <input type="time" x-model="newDt"> -->
+        <input type="time" x-model="newTime" x-ref="timeInput" x-init="$refs.timeInput.focus()">
         <button @click="addTimer()">Add Timer</button>
     </div>
 
@@ -82,10 +85,10 @@
     <script>
         function countdownApp() {
 
-
             return {
                 now: Date.now(),
                 newDt: '',
+                newTime: '',
                 timers: [],
 
                 loadTimers() {
@@ -99,13 +102,15 @@
                 },
 
                 addTimer() {
-                    if (!this.newDt) return;
+                    if (!this.newTime) return;
+                    // This creates a new timer and pushes it onto the stack.
                     this.timers.push({
                         id: Date.now(),
-                        until: new Date(this.newDt).getTime()
+                        until: this.createDateFromTimeString(this.newTime).getTime()
                     });
-                    this.newDt = '';
+                    this.newTime = '';
                     this.saveTimers();
+                    this.$refs.timeInput.focus();
                 },
 
                 sortedTimers() {
@@ -148,6 +153,16 @@
                     if (!this.isExpired(timer) && !confirm('Dismiss this active timer?')) return;
                     this.timers = this.timers.filter(t => t.id !== timer.id);
                     this.saveTimers();
+                },
+
+                createDateFromTimeString(timeString) {
+                    const [hours, minutes] = timeString.split(':').map(Number); // Split the string and convert to numbers
+                    const now = new Date(); // Get the current date and time
+                    now.setHours(hours); // Set the hours from the time string
+                    now.setMinutes(minutes); // Set the minutes from the time string
+                    now.setSeconds(0); // Set seconds to 0 (optional, but good practice)
+                    now.setMilliseconds(0); // Set milliseconds to 0 (optional, but good practice)
+                    return now;
                 }
             }
         }
