@@ -55,10 +55,49 @@
         button {
             margin-left: 0.5rem;
         }
+
+        /* Settings modal */
+        #settings-button {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        #settings-dialog {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+        }
+
+        #settings-dialog .panel {
+            background: white;
+            color: inherit;
+            padding: 1rem 1.25rem;
+            border-radius: 6px;
+            width: 320px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        }
+
+        #settings-dialog .row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+        }
     </style>
 </head>
 
 <body>
+
+    <button id="settings-button" aria-label="Settings" @click="openSettings()">⚙️</button>
 
     <!-- Input Area -->
     <div class="input-area">
@@ -82,6 +121,35 @@
         </div>
     </template>
 
+    <!-- Settings dialog -->
+    <div x-show="settingsOpen" x-cloak id="settings-dialog" role="dialog" aria-modal="true" aria-label="Settings"
+        x-ref="settingsDialog">
+        <div class="panel" @keydown.escape="cancelSettings()">
+            <h3>Settings</h3>
+            <div class="row">
+                <label for="setting-time24">24-hour time</label>
+                <input id="setting-time24" type="checkbox" x-model="tempSettings.time24">
+            </div>
+            <div class="row">
+                <label for="setting-update-title">Update page title with soonest timer</label>
+                <input id="setting-update-title" type="checkbox" x-model="tempSettings.updateTitle">
+            </div>
+            <div class="row">
+                <label for="setting-default-display">Default display</label>
+                <select id="setting-default-display" x-model="tempSettings.defaultDisplay">
+                    <option value="compact_mmhh">Compact HH:MM</option>
+                    <option value="precise_hhmmss">Precise HH:MM:SS</option>
+                    <option value="block_minutes">Block minutes</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.75rem;">
+                <button @click="saveSettings()">Save</button>
+                <button @click="cancelSettings()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function countdownApp() {
 
@@ -90,11 +158,59 @@
                 newDt: '',
                 newTime: '',
                 timers: [],
+                settings: {
+                    time24: true,
+                    updateTitle: false,
+                    defaultDisplay: 'compact_mmhh'
+                },
+                tempSettings: {},
+                settingsOpen: false,
 
                 loadTimers() {
                     const saved = localStorage.getItem('timers');
                     this.timers = saved ? JSON.parse(saved) : [];
+                    this.loadSettings();
                     this.startTicker();
+                },
+
+                loadSettings() {
+                    const raw = localStorage.getItem('countdownSettings');
+                    if (raw) {
+                        try {
+                            this.settings = JSON.parse(raw);
+                        } catch (e) {
+                            console.warn('Failed to parse settings', e);
+                        }
+                    }
+                    // ensure defaults for missing keys
+                    this.settings.time24 = this.settings.time24 !== undefined ? this.settings.time24 : true;
+                    this.settings.updateTitle = this.settings.updateTitle !== undefined ? this.settings.updateTitle : false;
+                    this.settings.defaultDisplay = this.settings.defaultDisplay || 'compact_mmhh';
+                },
+
+                openSettings() {
+                    // copy settings for editing
+                    this.tempSettings = JSON.parse(JSON.stringify(this.settings));
+                    this.settingsOpen = true;
+                    this.$nextTick(() => {
+                        if (this.$refs.settingsDialog) this.$refs.settingsDialog.focus();
+                    });
+                },
+
+                saveSettings() {
+                    this.settings = JSON.parse(JSON.stringify(this.tempSettings));
+                    localStorage.setItem('countdownSettings', JSON.stringify(this.settings));
+                    this.settingsOpen = false;
+                    this.applySettings();
+                },
+
+                cancelSettings() {
+                    this.settingsOpen = false;
+                },
+
+                applySettings() {
+                    // If title updates are disabled, restore default title
+                    if (!this.settings.updateTitle) document.title = 'Alpine.js Countdown';
                 },
 
                 saveTimers() {
@@ -146,6 +262,13 @@
                     setInterval(() => {
                         // Touch Alpine to re-render
                         this.now = Date.now();
+                        // Update document.title if requested
+                        if (this.settings && this.settings.updateTitle && this.timers.length) {
+                            const next = this.sortedTimers()[0];
+                            if (next) {
+                                document.title = this.formatCountdown(next, this.now) + ' — CountDownTimer';
+                            }
+                        }
                     }, 1000);
                 },
 
