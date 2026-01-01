@@ -37,6 +37,24 @@
             font-size: 10rem;
         }
 
+        .timer .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            align-items: flex-start;
+        }
+
+        .timer .meta .name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .timer .meta .count {
+            font-size: 4rem;
+            line-height: 1;
+        }
+
         .expired {
             background: #ed626e;
             color: #200b0d;
@@ -117,6 +135,8 @@
     <div class="input-area">
         <!-- <input type="time" x-model="newDt"> -->
         <input type="time" x-model="newTime" x-ref="timeInput" x-init="$refs.timeInput.focus()">
+        <input type="text" x-model="newName" placeholder="Name (optional, max 50)" maxlength="50"
+            style="margin-left:0.5rem;">
         <button @click="addTimer()">Add Timer</button>
     </div>
 
@@ -128,7 +148,10 @@
             'almost-expired': isAlmostExpired(timer, now),
             'expired-bg': isExpired(timer, now)
              }">
-            <div x-text="formatCountdown(timer, now)"></div>
+            <div class="meta">
+                <div class="name" x-text="timer.name || 'Timer'"></div>
+                <div class="count" x-text="formatCountdown(timer, now)"></div>
+            </div>
             <button @click="removeTimer(timer)">
                 <span x-text="isExpired(timer, now) ? 'Close' : 'Dismiss'"></span>
             </button>
@@ -171,6 +194,7 @@
                 now: Date.now(),
                 newDt: '',
                 newTime: '',
+                newName: '',
                 timers: [],
                 settings: {
                     time24: true,
@@ -275,12 +299,18 @@
 
                 addTimer() {
                     if (!this.newTime) return;
+                    // Prepare name, trim and limit to 50 chars
+                    let name = (this.newName || '').trim();
+                    if (!name) name = 'Timer';
+                    if (name.length > 50) name = name.slice(0, 50);
                     // This creates a new timer and pushes it onto the stack.
                     this.timers.push({
                         id: Date.now(),
-                        until: this.createDateFromTimeString(this.newTime).getTime()
+                        until: this.createDateFromTimeString(this.newTime).getTime(),
+                        name: name
                     });
                     this.newTime = '';
+                    this.newName = '';
                     this.saveTimers();
                     this.updateTitle();
                     this.$refs.timeInput.focus();
