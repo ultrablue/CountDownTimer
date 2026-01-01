@@ -260,8 +260,14 @@
                             document.title = this.defaultTitle || 'Alpine.js Countdown';
                             return;
                         }
-                        const next = sorted[0];
-                        document.title = this.titleFormatter(next, this.now) + ' — CountDownTimer';
+                        // Prefer the next non-expired timer so title moves on when one expires
+                        const upcoming = sorted.find(t => t.until > this.now);
+                        if (upcoming) {
+                            document.title = this.titleFormatter(upcoming, this.now) + ' — CountDownTimer';
+                            return;
+                        }
+                        // If no non-expired timers, fall back to default title
+                        document.title = this.defaultTitle || 'Alpine.js Countdown';
                     } catch (e) {
                         console.warn('updateTitle failed', e);
                     }
