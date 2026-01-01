@@ -92,10 +92,24 @@
             justify-content: space-between;
             padding: 0.5rem 0;
         }
+
+        /* Current time display (upper-left). Developers can override with #current-time or .current-time */
+        #current-time,
+        .current-time {
+            /* position: fixed;*/
+            top: 1rem;
+            left: 1rem;
+            font-size: 1.25rem;
+            background: transparent;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+        }
     </style>
 </head>
 
 <body>
+
+    <div id="current-time" class="current-time" aria-label="Current time" x-text="formatNow(now)"></div>
 
     <button id="settings-button" aria-label="Settings" @click="openSettings()">⚙️</button>
 
@@ -256,6 +270,19 @@
                         String(mins).padStart(2, '0'),
                         //String(secs).padStart(2, '0')
                     ].join(':') + " ⏳";
+                },
+
+                formatNow(now) {
+                    const d = new Date(now || Date.now());
+                    let hours = d.getHours();
+                    const mins = d.getMinutes();
+                    // Default to 24-hour unless settings.time24 === false
+                    if (this.settings && this.settings.time24 === false) {
+                        const ampm = hours >= 12 ? ' PM' : ' AM';
+                        hours = hours % 12 || 12;
+                        return String(hours) + ':' + String(mins).padStart(2, '0') + ampm;
+                    }
+                    return String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
                 },
 
                 startTicker() {
