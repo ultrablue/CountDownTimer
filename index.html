@@ -203,7 +203,7 @@
                 },
                 tempSettings: {},
                 settingsOpen: false,
-                defaultTitle: document.title,
+                defaultTitle: 'CountDown Timer',
 
                 loadTimers() {
                     const saved = localStorage.getItem('timers');
@@ -229,7 +229,7 @@
 
                 // Title handling
                 titleFormatter(timer, now) {
-                    // Return a compact representation for use in document.title
+                    // Return a compact time-only representation for use in document.title
                     const diff = timer.until - now;
                     if (diff <= 0) return '00:00';
                     const totalSecs = Math.floor(diff / 1000);
@@ -263,7 +263,8 @@
                         // Prefer the next non-expired timer so title moves on when one expires
                         const upcoming = sorted.find(t => t.until > this.now);
                         if (upcoming) {
-                            document.title = this.titleFormatter(upcoming, this.now) + ' — CountDownTimer';
+                            const name = (upcoming.name && upcoming.name.trim()) || 'Timer';
+                            document.title = name + ' - ' + this.titleFormatter(upcoming, this.now);
                             return;
                         }
                         // If no non-expired timers, fall back to default title

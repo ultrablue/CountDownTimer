@@ -14,19 +14,19 @@ Describe each display type the app must support. Each display type needs a short
    - Description: Shows hours and minutes as `HH:MM` and a trailing hourglass icon.
    - Precision: minutes (no seconds).
    - Visual: monospace `HH:MM ⏳` large display.
-   - Acceptance: While >0 and <60s remaining, display must not show `00:00` if seconds would change the minute. If minute granularity is chosen, it must be clear to users (e.g., show `00:00` only when minute boundary crossed) — see Timing rules.
+   
 
 2. `precise_hhmmss`
    - Description: Shows hours, minutes, and seconds as `HH:MM:SS`.
    - Precision: seconds.
    - Visual: updates every second, no ambiguous `00:00` minute edge cases.
-   - Acceptance: When <60s remaining, seconds should count down (e.g., `00:00:59`). Expired displays show `00:00:00` or an explicit expired indicator.
+   
 
 3. `block_minutes`
    - Description: Visual grid/row of blocks representing minutes remaining; blocks update as minutes elapse and highlight last 5 minutes differently.
    - Precision: minute-granular blocks, with last-minute transitions animated.
    - Visual: color-coded blocks, animations on removal.
-   - Acceptance: blocks count equals total minutes remaining; transitions animate when a minute elapses.
+   
 
 
    - Display behavior: All display implementations must accept and be able to render a timer's `name` (if present) alongside the timing representation, in a way that maintains readability at the chosen font size and layout.
@@ -55,6 +55,10 @@ Describe each display type the app must support. Each display type needs a short
 - Accessibility: Buttons and dynamic regions must have ARIA labels; color-only states must be accompanied by text or icons for color-blind users.
 - Contrast: Ensure color choices meet WCAG AA for foreground/background contrast.
  - Title update option: Provide an app-wide setting to optionally update the page `<title>` to reflect the remaining time of the timer that will end soonest. When enabled the title should show a compact, unambiguous representation of the shortest remaining timer (format chosen by global display precision rules) and fall back to the default app title when there are no timers. The option must be toggleable and persisted as part of global settings.
+ - Current time display: Show the current local time in the upper-left area of the page. It should display hours and minutes only (no seconds) formatted according to the global 12/24-hour setting. The element must be easily style-able by developers (provide a stable DOM hook such as an id `current-time` or a class `current-time`) and be accessible (e.g., appropriate `aria-label`).
+
+ - Title update option: Provide an app-wide setting to optionally update the page `<title>` to reflect the remaining time of the timer that will end soonest. When enabled the title MUST use the format: `Timer name - formatted time` whenever there is an active (non-expired) timer, or when the most recently dismissed timer is still visible in the UI. When no timers are visible, the title MUST read `CountDown Timer`. The time portion must obey the global precision/display rules (compact, precise, or block_minutes). The option must be toggleable and persisted as part of global settings.
+
  - Current time display: Show the current local time in the upper-left area of the page. It should display hours and minutes only (no seconds) formatted according to the global 12/24-hour setting. The element must be easily style-able by developers (provide a stable DOM hook such as an id `current-time` or a class `current-time`) and be accessible (e.g., appropriate `aria-label`).
 
 ## Settings UI (app-wide preferences)
@@ -93,20 +97,41 @@ The app must expose an easily discoverable settings control that allows users to
    - Use the stable DOM hooks (`settings-button`, `settings-dialog`, `setting-time24`, `setting-update-title`, `setting-default-display`) so developers can style or script the controls.
 
 - Acceptance tests / examples:
-   - Toggling `24-hour time` updates the `current-time` element and other formatters to 12/24-hour representation immediately and persists after reload.
-   - Enabling `Update page title` causes `document.title` to reflect the time remaining of the soonest timer; disabling restores the default title.
+  
 
 
 ## Acceptance Criteria / Tests
-Provide simple examples and expected outcomes.
+Each test below is a pass/fail criterion. Follow the Given/When/Then pattern and mark the test as PASS when the stated condition is met.
 
-- Example 1: Add a timer 00:00:59 from now using `precise_hhmmss`. Expected: display shows `00:00:59` and counts down to `00:00:00`, then shows expired state.
-- Example 2: Add a timer 00:00:59 using `compact_mmhh` (minute precision). Expected: display shows `00:01` (or clearly indicates minute-granularity) until the minute boundary is reached; it must not misleadingly show `00:00` while seconds remain.
- - Example 2: Add a timer 00:00:59 using `compact_mmhh` (minute precision). Expected: the display may show `00:00` when less than a minute remains; the UI must visually indicate near-expiration (for example via the `almost-expired` or `expired-bg` styles) so the user is not misled about remaining time.
-- Example 3: Switch global display to `block_minutes`. Existing timers update their rendered representation according to selection unless they have a per-timer override.
-- Example 4: It's 13:00 (1:00 PM). User enters `05:00` (5:00 AM). The app prompts: "Entered time is earlier than now. Create a timer for tomorrow at 05:00?" If the user confirms, the timer is created for the next day (within 24 hours); if the user declines, the timer is not created.
-- Example 5: User enters `5:00 PM` (12-hour format) while current time is 16:00; the app correctly parses to 17:00 today and creates a timer for today at 17:00 without a rollover prompt.
- - Example 6: Create a timer with name "Lunch break" and end time 13:00. Expected: the timer appears using the selected display and includes the name (truncated to 50 characters if necessary) in a readable position.
+1. Given a timer created for 59 seconds from now using `precise_hhmmss`, when the timer runs, then the displayed value counts down each second from `00:00:59` to `00:00:00` and then shows an explicit expired indicator. Pass if the UI updates every second and the expired state is shown when remaining <= 0.
+
+2. Given a timer created for 59 seconds from now using `compact_mmhh` (minute precision), when the timer runs, then the UI must not misleadingly present a full-minute zero remaining while seconds remain without an additional near-expiration indicator. Pass if either (a) the display holds the previous minute until the minute boundary (e.g., shows `00:01` until it becomes `00:00`), or (b) it shows `00:00` but also renders a clear near-expiration visual indicator (e.g., `almost-expired` style) while seconds remain.
+
+3. Given existing timers and the user switches the global display to `block_minutes`, when the switch is applied, then timers without a per-timer `displayType` override must render using `block_minutes`. Pass if all unaffected timers change representation immediately and per-timer overrides remain unchanged.
+
+4. Given the current time is later than an entered time-of-day (same-day mapping), when the user attempts to create a timer for that earlier time, then the app prompts: "The entered time is earlier than the current time — did you mean tomorrow at HH:MM?". Pass if the prompt appears and, upon confirmation, the timer is created with `until` advanced by 24 hours; if the user declines, the timer is not created.
+
+5. Given a 12-hour formatted input like `5:00 PM`, when parsed while the clock is 16:00 (4:00 PM), then the app must interpret the input as 17:00 today and create a timer for today without a rollover prompt. Pass if the created timer's `until` corresponds to today at 17:00.
+
+6. Given a user creates a timer with a `name` field (e.g., "Lunch break") and end time 13:00, when the timer is displayed, then the timer's rendered card must include the name (trimmed to 50 characters if necessary). Pass if the UI shows the provided name and truncation occurs when the length exceeds 50 characters.
+
+7. Given the global setting `setting-update-title` is enabled and multiple timers exist, when the app updates titles, then `document.title` must reflect the remaining time of the soonest non-expired timer using the global precision rules (compact or precise). Pass if `document.title` matches the formatted remaining time for the soonest timer while it is not expired.
+
+8. Given `setting-update-title` is enabled and the soonest timer expires while other timers remain, when the soonest timer reaches expiry, then the app must update `document.title` to reflect the next soonest non-expired timer (and must not display the expired timer). Pass if `document.title` changes from the expired timer's value to the next timer's formatted remaining time and never shows the expired timer as the current title once expired.
+
+9. Given a timer rendered using `block_minutes`, when the timer has N whole minutes remaining, then the UI must display N minute blocks and visually distinguish the last five minutes. Pass if the number of rendered blocks equals the integer minute count of remaining time and the last five blocks are styled/highlighted differently; minute-elapse transitions must animate.
+
+10. Given the settings control `setting-time24` is toggled, when the setting is saved and the page is reloaded, then the `current-time` element and other time formatters must reflect the chosen 12/24-hour representation immediately and persist across reloads. Pass if formatting updates immediately on save and persists after a full reload.
+
+11. Given a user adds or removes a timer, when the operation completes, then focus must return to the time input control. Pass if focus is on the time input after add or remove completes (keyboard users can continue entering times without extra clicks).
+
+12. Given an active (non-expired) timer and the user initiates a dismiss action, when the dismiss is requested, then the UI must require an explicit confirmation before removing the timer. Pass if a confirmation dialog appears and the timer is only removed after the user confirms.
+
+13. Given `setting-update-title` is enabled and there is an active (non-expired) timer with the name "My Timer", when the app updates the page title, then `document.title` must equal `My Timer - <formatted time>` where `<formatted time>` matches the global display precision. Pass if `document.title` exactly equals the timer's name, a hyphen, a space, and the formatted remaining time.
+
+14. Given `setting-update-title` is enabled and no active non-expired timers exist but the most recently dismissed timer is still rendered in the UI, when the app updates the page title, then `document.title` must equal `TimerName - <formatted time>` for that most recently dismissed visible timer. Pass if the title matches that timer's name and formatted time.
+
+15. Given `setting-update-title` is enabled and no timers (active or visible) exist, when the app updates the page title, then `document.title` must equal `CountDown Timer`. Pass if the exact text `CountDown Timer` appears in the document title.
 
 ## Notes / Implementation Guidance (non-normative)
 - Maintain a single `now` tick and pass it to all formatters and state checks to keep rendering consistent.
