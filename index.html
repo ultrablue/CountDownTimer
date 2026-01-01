@@ -179,6 +179,7 @@
                 },
                 tempSettings: {},
                 settingsOpen: false,
+                defaultTitle: document.title,
 
                 loadTimers() {
                     const saved = localStorage.getItem('timers');
@@ -202,6 +203,46 @@
                     this.settings.defaultDisplay = this.settings.defaultDisplay || 'compact_mmhh';
                 },
 
+                // Title handling
+                titleFormatter(timer, now) {
+                    // Return a compact representation for use in document.title
+                    const diff = timer.until - now;
+                    if (diff <= 0) return '00:00';
+                    const totalSecs = Math.floor(diff / 1000);
+                    const secs = totalSecs % 60;
+                    const mins = Math.floor(totalSecs / 60) % 60;
+                    const hrs = Math.floor(totalSecs / 3600);
+
+                    const display = (this.settings && this.settings.defaultDisplay) || 'compact_mmhh';
+                    if (display === 'precise_hhmmss') {
+                        return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0'), String(secs).padStart(2, '0')].join(':');
+                    }
+                    if (display === 'block_minutes') {
+                        const totalMins = Math.ceil(totalSecs / 60);
+                        return totalMins + ' min';
+                    }
+                    // compact_mmhh fallback
+                    return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0')].join(':');
+                },
+
+                updateTitle() {
+                    try {
+                        if (!this.settings || !this.settings.updateTitle) {
+                            document.title = this.defaultTitle || 'Alpine.js Countdown';
+                            return;
+                        }
+                        const sorted = this.sortedTimers();
+                        if (!sorted.length) {
+                            document.title = this.defaultTitle || 'Alpine.js Countdown';
+                            return;
+                        }
+                        const next = sorted[0];
+                        document.title = this.titleFormatter(next, this.now) + ' — CountDownTimer';
+                    } catch (e) {
+                        console.warn('updateTitle failed', e);
+                    }
+                },
+
                 openSettings() {
                     // copy settings for editing
                     this.tempSettings = JSON.parse(JSON.stringify(this.settings));
@@ -216,6 +257,7 @@
                     localStorage.setItem('countdownSettings', JSON.stringify(this.settings));
                     this.settingsOpen = false;
                     this.applySettings();
+                    this.updateTitle();
                 },
 
                 cancelSettings() {
@@ -240,6 +282,7 @@
                     });
                     this.newTime = '';
                     this.saveTimers();
+                    this.updateTitle();
                     this.$refs.timeInput.focus();
                 },
 
@@ -289,13 +332,8 @@
                     setInterval(() => {
                         // Touch Alpine to re-render
                         this.now = Date.now();
-                        // Update document.title if requested
-                        if (this.settings && this.settings.updateTitle && this.timers.length) {
-                            const next = this.sortedTimers()[0];
-                            if (next) {
-                                document.title = this.formatCountdown(next, this.now) + ' — CountDownTimer';
-                            }
-                        }
+                        // Update document.title if requested (centralized)
+                        this.updateTitle();
                     }, 1000);
                 },
 
@@ -303,6 +341,7 @@
                     if (!this.isExpired(timer) && !confirm('Dismiss this active timer?')) return;
                     this.timers = this.timers.filter(t => t.id !== timer.id);
                     this.saveTimers();
+                    this.updateTitle();
                     this.$refs.timeInput.focus();
                 },
 
