@@ -204,6 +204,17 @@
                 tempSettings: {},
                 settingsOpen: false,
                 defaultTitle: 'CountDown Timer',
+                // Display registry for pluggable display types
+                displayRegistry: {},
+
+                registerDisplay(spec) {
+                    if (!spec || !spec.id) return;
+                    this.displayRegistry[spec.id] = spec;
+                },
+
+                getDisplay(id) {
+                    return this.displayRegistry[id] || this.displayRegistry[this.settings.defaultDisplay] || null;
+                },
 
                 loadTimers() {
                     const saved = localStorage.getItem('timers');
@@ -229,14 +240,17 @@
 
                 // Title handling
                 titleFormatter(timer, now) {
-                    // Return a compact time-only representation for use in document.title
+                    // Prefer display-specific title formatter when available
+                    const disp = this.getDisplay(timer.displayType || (this.settings && this.settings.defaultDisplay));
+                    if (disp && typeof disp.title === 'function') return disp.title(timer, now);
+
+                    // Fallback: time-only formatter (compact)
                     const diff = timer.until - now;
                     if (diff <= 0) return '00:00';
                     const totalSecs = Math.floor(diff / 1000);
                     const secs = totalSecs % 60;
                     const mins = Math.floor(totalSecs / 60) % 60;
                     const hrs = Math.floor(totalSecs / 3600);
-
                     const display = (this.settings && this.settings.defaultDisplay) || 'compact_mmhh';
                     if (display === 'precise_hhmmss') {
                         return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0'), String(secs).padStart(2, '0')].join(':');
@@ -314,7 +328,8 @@
                     this.timers.push({
                         id: Date.now(),
                         until: this.createDateFromTimeString(this.newTime).getTime(),
-                        name: name
+                        name: name,
+                        displayType: this.settings && this.settings.defaultDisplay
                     });
                     this.newTime = '';
                     this.newName = '';
@@ -339,17 +354,15 @@
                 },
 
                 formatCountdown(timer, now) {
-                    // TODO This should be refactored to use specific formats like HH:MM:SS.
+                    // Dispatch to the display registry for rendering
+                    const disp = this.getDisplay(timer.displayType || (this.settings && this.settings.defaultDisplay));
+                    if (disp && typeof disp.render === 'function') return disp.render(timer, now);
+                    // Fallback: compact mm:hh
                     const diff = timer.until - now;
                     if (diff <= 0) return '--:--';
                     const mins = Math.floor(diff / 1000 / 60 % 60);
                     const hrs = Math.floor(diff / 1000 / 3600 % 24);
-                    return [
-                        //String(days).padStart(2, '0'),
-                        String(hrs).padStart(2, '0'),
-                        String(mins).padStart(2, '0'),
-                        //String(secs).padStart(2, '0')
-                    ].join(':') + " ⏳";
+                    return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0')].join(':') + " ⏳";
                 },
 
                 formatNow(now) {
@@ -395,10 +408,87 @@
         }
     </script>
 
+    <script>
+        // Register built-in displays after countdownApp is defined
+        document.addEventListener('alpine:init', () => {
+            // We expect countdownApp to register displays via its instance; however in this single-file app
+            // we can also register directly by finding the Alpine component after init. Use a short delay.
+            setTimeout(() => {
+                try {
+                    const root = document.querySelector('[x-data="countdownApp()"]');
+                    if (!root) return;
+                    const comp = root.__x.$data;
+                    if (!comp || !comp.registerDisplay) return;
+
+                    // compact_mmhh
+                    comp.registerDisplay({
+                        id: 'compact_mmhh',
+                        meta: { precision: 'minutes', label: 'Compact HH:MM' },
+                        render(timer, now) {
+                            const diff = timer.until - now;
+                            if (diff <= 0) return '00:00 ⏳';
+                            const totalSecs = Math.floor(diff / 1000);
+                            const mins = Math.floor(totalSecs / 60) % 60;
+                            const hrs = Math.floor(totalSecs / 3600);
+                            return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0')].join(':') + ' ⏳';
+                        },
+                        title(timer, now) {
+                            const diff = timer.until - now;
+                            if (diff <= 0) return '00:00';
+                            const totalSecs = Math.floor(diff / 1000);
+                            const mins = Math.floor(totalSecs / 60) % 60;
+                            const hrs = Math.floor(totalSecs / 3600);
+                            return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0')].join(':');
+                        }
+                    });
+
+                    // precise_hhmmss
+                    comp.registerDisplay({
+                        id: 'precise_hhmmss',
+                        meta: { precision: 'seconds', label: 'Precise HH:MM:SS' },
+                        render(timer, now) {
+                            const diff = timer.until - now;
+                            if (diff <= 0) return '00:00:00';
+                            const totalSecs = Math.floor(diff / 1000);
+                            const secs = totalSecs % 60;
+                            const mins = Math.floor(totalSecs / 60) % 60;
+                            const hrs = Math.floor(totalSecs / 3600);
+                            return [String(hrs).padStart(2, '0'), String(mins).padStart(2, '0'), String(secs).padStart(2, '0')].join(':');
+                        },
+                        title(timer, now) {
+                            return this.render(timer, now);
+                        }
+                    });
+
+                    // block_minutes
+                    comp.registerDisplay({
+                        id: 'block_minutes',
+                        meta: { precision: 'minutes', label: 'Block Minutes' },
+                        render(timer, now) {
+                            const diff = timer.until - now;
+                            if (diff <= 0) return '0 min';
+                            const totalMins = Math.ceil(Math.max(0, diff) / 60000);
+                            return totalMins + ' min';
+                        },
+                        title(timer, now) {
+                            const diff = timer.until - now;
+                            if (diff <= 0) return '0 min';
+                            const totalMins = Math.ceil(Math.max(0, diff) / 60000);
+                            return totalMins + ' min';
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Failed to register displays', e);
+                }
+            }, 50);
+        });
+    </script>
+
 
     <div>
         Todo
         <ul>
+            <li>Make the favicon update. 💚,🟢; 💛, 🟡; ❤️,🔴. How do we do that?</li>
             <li>One square (or other shape) per minute. Remove them one a time. Randomly or in a particular order. </li>
             <ul>
                 <li>With non-decimal hour divisions. eg</li>
